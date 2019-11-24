@@ -1,0 +1,73 @@
+plugins {
+    id 'java'
+    id "com.google.protobuf" version "0.8.10"
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile("io.grpc:grpc-netty:1.25.0")
+    compile("io.grpc:grpc-protobuf:1.25.0")
+    compile("io.grpc:grpc-stub:1.25.0")
+
+    testCompile 'junit:junit:4.12'
+}
+
+// https://www.bugsnag.com/blog/libraries-for-grpc-services
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.10.1"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.25.0"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+    generatedFilesBaseDir = "$projectDir/gen"
+}
+
+sourceSets {
+  main {
+    proto {
+      // In addition to the default "src/main/proto"
+      srcDir "proto"
+    }
+    java {
+      srcDirs += ["gen/main/grpc", "gen/main/java"]
+    }
+  }
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = "sources"
+    from sourceSets.main.allSource
+}
+
+clean {
+    delete protobuf.generatedFilesBaseDir
+}
+
+
+task runServer(type: Exec) {
+    dependsOn build
+    group = "Execution"
+    description = "Run the main class with ExecTask"
+    commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), "org.baeldung.grpc.server.GrpcServer"
+}
+
+task runClient(type: Exec) {
+    dependsOn build
+    group = "Execution"
+    description = "Run the main class with ExecTask"
+    commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), "org.baeldung.grpc.client.GrpcClient"
+}
