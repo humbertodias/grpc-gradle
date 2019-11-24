@@ -37,15 +37,15 @@ protobuf {
 }
 
 sourceSets {
-  main {
-    proto {
-      // In addition to the default "src/main/proto"
-      srcDir "proto"
+    main {
+        proto {
+            // In addition to the default "src/main/proto"
+            srcDir "proto"
+        }
+        java {
+            srcDirs += ["gen/java"]
+        }
     }
-    java {
-      srcDirs += ["gen/java"]
-    }
-  }
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
@@ -66,9 +66,10 @@ task runClient(type: Exec, dependsOn: build) {
     commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), "org.baeldung.grpc.client.GrpcClient"
 }
 
+final String osName = System.getProperty("os.name").toLowerCase()
 def arch = System.getProperty('os.arch').indexOf("64") ? '64' : '86'
-def platform = System.getProperty('os.name').toLowerCase() + '_x' + arch
-def protocDir =  "build/tools/" + platform + "/"
+def platform = osName.contains("mac os x") || osName.contains("darwin") || osName.contains("osx") ? 'macosx' : osName
+def protocDir =  "build/tools/" + platform + '_x' + arch + "/"
 
 task grpcToolsPermission {
     doLast {
