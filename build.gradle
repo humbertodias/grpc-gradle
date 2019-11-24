@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id "com.google.protobuf" version "0.8.10"
+    id 'de.undercouch.download' version '4.0.0'
 }
 
 sourceCompatibility = 1.8
@@ -14,7 +15,6 @@ dependencies {
     compile("io.grpc:grpc-netty:1.25.0")
     compile("io.grpc:grpc-protobuf:1.25.0")
     compile("io.grpc:grpc-stub:1.25.0")
-
     testCompile 'junit:junit:4.12'
 }
 
@@ -33,7 +33,7 @@ protobuf {
             grpc {}
         }
     }
-    generatedFilesBaseDir = "$projectDir/gen"
+    generatedFilesBaseDir = "$projectDir/gen/java"
 }
 
 sourceSets {
@@ -43,7 +43,7 @@ sourceSets {
       srcDir "proto"
     }
     java {
-      srcDirs += ["gen/main/grpc", "gen/main/java"]
+      srcDirs += ["gen/java"]
     }
   }
 }
@@ -55,19 +55,48 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 
 clean {
     delete protobuf.generatedFilesBaseDir
+    delete "$projectDir/gen"
 }
 
-
-task runServer(type: Exec) {
-    dependsOn build
-    group = "Execution"
-    description = "Run the main class with ExecTask"
+task runServer(type: Exec, dependsOn: build) {
     commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), "org.baeldung.grpc.server.GrpcServer"
 }
 
-task runClient(type: Exec) {
-    dependsOn build
-    group = "Execution"
-    description = "Run the main class with ExecTask"
+task runClient(type: Exec, dependsOn: build) {
     commandLine "java", "-classpath", sourceSets.main.runtimeClasspath.getAsPath(), "org.baeldung.grpc.client.GrpcClient"
 }
+
+def arch = System.getProperty('os.arch').indexOf("64") ? '64' : '86'
+def platform = System.getProperty('os.name').toLowerCase() + '_x' + arch
+def protocDir =  "build/tools/" + platform + "/"
+
+task grpcToolsPermission {
+    doLast {
+        ant.chmod(perm: '+x', file: protocDir + 'protoc')
+        ant.chmod(perm: '+x', file: protocDir + 'grpc_csharp_plugin')
+    }
+}
+
+task grpcToolsDownload(type: Download) {
+    src 'https://packages.grpc.io/archive/2019/11/a30f2f95017bf0f53acf2a89056252eb3a2cbbab-b42eea7c-f904-45bf-aaef-5a1c7959c12c/csharp/Grpc.Tools.2.26.0-dev201911221120.nupkg'
+    dest new File(buildDir, 'grpc.tools.zip')
+    overwrite false
+}
+
+task grpcToolsUnzip(type: Copy, dependsOn: grpcToolsDownload) {
+    from zipTree(grpcToolsDownload.dest)
+    into buildDir
+    include "tools/**"
+}
+grpcToolsUnzip.finalizedBy grpcToolsPermission
+
+task generateDir {
+    doLast {
+        ant.mkdir(dir: 'gen/csharp')
+    }
+}
+
+task generateCSharp(type: Exec, dependsOn: [grpcToolsUnzip, generateDir]) {
+    commandLine protocDir + 'protoc', '-I', 'src/main/proto/', '--csharp_out', 'gen/csharp', '--grpc_out', 'gen/csharp', 'src/main/proto/HelloService.proto', '--plugin', 'protoc-gen-grpc=' + protocDir + 'grpc_csharp_plugin'
+}
+build.finalizedBy generateCSharp

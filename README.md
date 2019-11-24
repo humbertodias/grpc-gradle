@@ -9,3 +9,7 @@ Based on [grpc-introduction](https://www.baeldung.com/grpc-introduction)
 ## Client
 
     gradle runClient
+
+## Generating
+
+    gradle generateCSharp 
